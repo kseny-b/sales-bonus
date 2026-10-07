@@ -18,7 +18,7 @@ function calculateSimpleRevenue(purchase, _product) {
  * @returns {number}
  */
 function calculateBonusByProfit(index, total, seller) {
-    const profit = seller.total_profit;
+    const { profit } = seller;
     let bonus = 0;
     if (index === 0) {
         bonus = 0.15;
@@ -45,7 +45,8 @@ function analyzeSalesData(data, options) {
         || !data.customers
         || !data.products
         || !data.sellers
-        || !data.purchase_records) {
+        || !data.purchase_records
+        || data.purchase_records.length === 0) {
         throw new Error('Некорректные входные данные');
     }
 
@@ -64,8 +65,8 @@ function analyzeSalesData(data, options) {
         start_date: seller.start_date,
         position: seller.position,
         sales_count: 0,
-        total_revenue: 0,
-        total_profit: 0,
+        revenue: 0,
+        profit: 0,
         products_sold: {}
     }));
 
@@ -81,8 +82,9 @@ function analyzeSalesData(data, options) {
             const cost = product.purchase_price * item.quantity;
             const revenue = calculateRevenue(item, product);
             const profit = revenue - cost;
-            seller.total_revenue += revenue;
-            seller.total_profit += profit;
+
+            seller.revenue = Math.round((seller.revenue + revenue) * 100) / 100;
+            seller.profit += profit;
 
             if (!seller.products_sold[item.sku]) {
                 seller.products_sold[item.sku] = 0;
@@ -91,7 +93,7 @@ function analyzeSalesData(data, options) {
         });
     });
     
-    sellerStats.sort((a, b) => b.total_profit - a.total_profit);
+    sellerStats.sort((a, b) => b.profit - a.profit);
 
     sellerStats.forEach((seller, index) => {
         seller.bonus = calculateBonusByProfit(index, sellerStats.length, seller);
@@ -107,8 +109,8 @@ function analyzeSalesData(data, options) {
     return sellerStats.map(seller => ({
     seller_id: seller.id,
     name: `${seller.first_name} ${seller.last_name}`,
-    revenue: +seller.total_revenue.toFixed(2),
-    profit: +seller.total_profit.toFixed(2),
+    revenue: +seller.revenue.toFixed(2),
+    profit: +seller.profit.toFixed(2),
     sales_count: seller.sales_count,
     top_products: seller.top_products.map(product => ({
         sku: product.sku,
